@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { embed, toVectorLiteral } from '@scimem/ai';
 import { authedClient } from '@/lib/supabase/auth';
 import { estTokens, resolveProject, sha256Hex, splitChunks } from '@/lib/pipeline';
-import { extractReadableText } from '@/lib/extract';
+import { extractReadableText, detectPlatform } from '@/lib/extract';
 import { decodeImageDataUrl, uploadSnapshot } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
@@ -54,7 +54,8 @@ export async function POST(req: NextRequest) {
     const title = (body.title ?? url).slice(0, 300);
     const nowIso = new Date().toISOString();
 
-    const text = extractReadableText(body.html ?? '');
+    const text = extractReadableText(body.html ?? '', url);
+    const platform = detectPlatform(url);
     const textChars = text.length;
     if (textChars === 0) {
       return NextResponse.json({
@@ -201,6 +202,7 @@ export async function POST(req: NextRequest) {
           snapshot_path: snapshotPath,
           screenshot_path: screenshotPath,
           capture: 'extension',
+          platform,
         },
       })
       .select('id')
