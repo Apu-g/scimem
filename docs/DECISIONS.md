@@ -34,6 +34,13 @@ Other caveats:
 | NVIDIA embed model max input tokens | S1.3b follow-up | TBD (chunks ~600 tokens, so only matters for research pages) |
 | Supabase JWT signing (symmetric vs asymmetric) for PAT minting | S5.6 | TBD |
 
+## Migration driver — Supabase MCP over CLI link/db-push (2026-09-21, S1.3)
+
+- The guide prescribes `supabase login` → `supabase link --project-ref` → `supabase db push`. That flow needs either a CLI access token or a working **database password**; the password in `keys.txt` is rejected by the project's DB (project is in **ap-south-1/Mumbai**; direct `db.<ref>` host currently has no reachable IPv4 record, only a flaky IPv6).
+- **Chosen path:** the official hosted Supabase MCP (`mcp.supabase.com`, OAuth as the user's account) drives migrations via `apply_migration(name, query)`. It authenticates at the account level (no DB password), records each migration in `supabase_migrations.schema_migrations` (verified: `v20260920183239 enable_extensions`), and `execute_sql` covers verification queries.
+- Rule going forward: **every schema change ships as a versioned file under `supabase/migrations/` AND is applied to the cloud via `apply_migration` with the same name+SQL**; verify with `list_migrations` that the version recorded matches.
+- DB password reset remains optional (needed only if we ever switch back to CLI `db push`/`db reset` locally). Not blocking.
+
 ## Locked decisions (from guide §2 — do not change without telling the user)
 
 - Cloud: Vercel (web+API), Supabase (Postgres+pgvector+tsvector+Auth+Storage), separate worker host later.
