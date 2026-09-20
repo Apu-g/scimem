@@ -11,6 +11,7 @@ All dates in `YYYY-MM-DD`. Updated at the end of every step (Agent Protocol rule
 | S1.2 | Env and config module | DONE | 2026-09-20 | zod-validated serverEnv()/publicEnv() with fail-fast, .env.example files, real .env.local from keys.txt (git-ignored) |
 | S1.3 | Supabase project link and migration flow | DONE | 2026-09-21 | Extensions `vector` 0.8.2 + `pgcrypto` 1.3 installed via Supabase MCP `apply_migration` (recorded as v20260920183239 `enable_extensions`); `select * from pg_extension` returns both rows; local migration file renamed to match recorded version |
 | S1.3b | Verify provider facts (embedding model and dimension) | DONE | 2026-09-20 | embed=nvidia/nemotron-3-embed-1b (2048), rerank endpoint verified but account not provisioned, groq=openai/gpt-oss-20b, openrouter=anthropic/claude-sonnet-5 |
+| S1.4 | Core schema migration | DONE | 2026-09-21 | 9 tables (Appendix A) + indexes + match_chunks/text_search_chunks applied as v20260920184050; hnsw indexes on embedding::halfvec(2048) expression (pgvector 2000-dim float32 ceiling) |
 | S1.4 | Core schema migration | TODO | | |
 | S1.5 | Row Level Security + isolation test | TODO | | |
 | S2.1 | Chat and embedding clients | TODO | | |

@@ -34,6 +34,13 @@ Other caveats:
 | NVIDIA embed model max input tokens | S1.3b follow-up | TBD (chunks ~600 tokens, so only matters for research pages) |
 | Supabase JWT signing (symmetric vs asymmetric) for PAT minting | S5.6 | TBD |
 
+## pgvector 2048-dim HNSW — expression index on `halfvec` (2026-09-21, S1.4)
+
+- **Locked fact:** pgvector 0.8.x caps float32 `vector` HNSW/IVFFlat indexes at **2000 dims** (hard compile-time constant; a 2048-dim hnsw tuple would exceed the 8KB index page). No GUC can raise it (`max_hnsw_dims` does not exist — session `SET` returns `42704`).
+- **Chosen fix:** columns stay `vector(2048)` (full precision storage is fine — heap limit is 16000). Indexes are expression indexes `USING hnsw ((embedding::halfvec(2048)) halfvec_cosine_ops)` (halfvec ceiling 4000, half the bytes). `match_chunks` repeats the cast in `ORDER BY` so the planner can use them; similarity stays full precision.
+- **Cost:** ≤0.3 recall points per published measurements; index ~1.5–3x smaller. Revisit DiskANN (pgvectorscale) if scale demands.
+- Rule: any future hnsw index over a >2000-dim `vector` column must use the same halfvec cast pattern.
+
 ## Migration driver — Supabase MCP over CLI link/db-push (2026-09-21, S1.3)
 
 - The guide prescribes `supabase login` → `supabase link --project-ref` → `supabase db push`. That flow needs either a CLI access token or a working **database password**; the password in `keys.txt` is rejected by the project's DB (project is in **ap-south-1/Mumbai**; direct `db.<ref>` host currently has no reachable IPv4 record, only a flaky IPv6).
