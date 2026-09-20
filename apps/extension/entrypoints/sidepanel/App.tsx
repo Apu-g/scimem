@@ -200,6 +200,10 @@ export default function App() {
               <option key={p.id} value={p.name} />
             ))}
           </datalist>
+          <p className="mt-1 text-[0.7rem] leading-snug text-zinc-600">
+            Capture and Ask act on this project. A name you type that doesn't exist yet is{' '}
+            <em>created on capture</em>.
+          </p>
         </div>
       )}
 
@@ -284,7 +288,14 @@ export default function App() {
                     <p className="text-amber-400">{capResult.note}</p>
                   ) : (
                     <>
-                      <p className="mb-1 font-semibold text-zinc-200">{capResult.title}</p>
+                      <p className="mb-1 font-semibold text-zinc-200">
+                        {capResult.title}
+                        {capResult.platform && capResult.platform !== 'unknown' && (
+                          <span className="ml-2 rounded bg-zinc-800 px-1.5 py-0.5 text-[0.65rem] font-normal uppercase text-zinc-400">
+                            {capResult.platform}
+                          </span>
+                        )}
+                      </p>
                       <p className="mb-2 break-all text-zinc-500">{capResult.url}</p>
                       <ul className="grid grid-cols-2 gap-1 text-zinc-400">
                         <li>chunks: {capResult.chunks ?? 0}</li>

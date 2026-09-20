@@ -30,6 +30,7 @@ export interface CapturePageResult {
   error?: string;
   latency_ms?: number;
   project?: string;
+  platform?: string;
 }
 
 export interface AskResult {

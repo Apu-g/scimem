@@ -1,21 +1,61 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-/** Split captured text into embed-sized chunks at paragraph boundaries. */
+/**
+ * Split captured text into embed-sized chunks.
+ * - Splits at paragraph boundaries when possible.
+ * - Hard-splits oversized paragraphs at sentence boundaries so no single
+ *   chunk grows past maxChars (a giant single chunk used to swallow whole
+ *   pages and wreck retrieval).
+ */
 export function splitChunks(content: string, maxChars = 900): string[] {
   const paragraphs = content
     .split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
   const chunks: string[] = [];
   let current = '';
   for (const p of paragraphs) {
-    if (current && current.length + p.length + 2 > maxChars) {
-      chunks.push(current);
-      current = p;
-    } else {
-      current = current ? `${current}\n\n${p}` : p;
+    for (const piece of splitParagraph(p, maxChars)) {
+      if (current && current.length + piece.length + 2 > maxChars) {
+        chunks.push(current);
+        current = piece;
+      } else {
+        current = current ? `${current}\n\n${piece}` : piece;
+      }
     }
   }
   if (current) chunks.push(current);
   return chunks.length > 0 ? chunks : [content];
+}
+
+/** Split one paragraph into ≤maxChars pieces at sentence boundaries. */
+function splitParagraph(paragraph: string, maxChars: number): string[] {
+  if (paragraph.length <= maxChars) return [paragraph];
+
+  // Split at sentence ends / clause breaks, keeping the delimiter.
+  const parts = paragraph
+    .split(/(?<=[.!?])\s+|\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const pieces: string[] = [];
+  let buf = '';
+  for (const part of parts) {
+    if (part.length > maxChars) {
+      // A single sentence longer than the budget: hard-wrap mid-sentence.
+      if (buf) { pieces.push(buf); buf = ''; }
+      for (let i = 0; i < part.length; i += maxChars) {
+        pieces.push(part.slice(i, i + maxChars));
+      }
+      continue;
+    }
+    if (buf && buf.length + part.length + 1 > maxChars) {
+      pieces.push(buf);
+      buf = part;
+    } else {
+      buf = buf ? `${buf} ${part}` : part;
+    }
+  }
+  if (buf) pieces.push(buf);
+  return pieces.length > 0 ? pieces : [paragraph];
 }
 
 /** Rough token estimate (~4 chars/token). */

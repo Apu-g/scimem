@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
         url,
         title,
         project: project.name ?? project.id,
+        platform,
         latency_ms: Date.now() - started,
       });
     }
@@ -121,6 +122,7 @@ export async function POST(req: NextRequest) {
         snapshot_path: pageExisting?.snapshot_path ?? null,
         screenshot_path: null,
         project: project.name ?? project.id,
+        platform,
         latency_ms: Date.now() - started,
       });
     }
@@ -236,6 +238,7 @@ export async function POST(req: NextRequest) {
       snapshot_path: snapshotPath,
       screenshot_path: screenshotPath,
       project: project.name ?? project.id,
+      platform,
       latency_ms: Date.now() - started,
     });
   } catch (e) {
