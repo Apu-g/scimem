@@ -1,0 +1,7 @@
+# generated
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# env (guarded at repo root too)
+.env*
