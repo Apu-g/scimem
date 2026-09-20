@@ -13,6 +13,7 @@
     "fmt:check": "prettier --check ."
   },
   "devDependencies": {
+    "@supabase/supabase-js": "^2.116.0",
     "@types/node": "^26.6.2",
     "@types/pg": "^8.23.1",
     "eslint": "^10.11.0",
