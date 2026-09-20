@@ -1,0 +1,25 @@
+# dependencies
+node_modules/
+
+# env files (secrets) — never commit
+.env*
+!.env.example
+
+# build output
+.next/
+dist/
+.wxt/
+.output/
+out/
+*.tsbuildinfo
+
+# tests / coverage
+coverage/
+
+# editor / OS
+.DS_Store
+*.local
+
+# SECRETS — do NOT commit under any circumstances
+keys.txt
+secrets/
