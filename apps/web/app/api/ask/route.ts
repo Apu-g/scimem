@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { chatAnswer, embed, safeRerank, toVectorLiteral } from '@scimem/ai';
 import { authedClient } from '@/lib/supabase/auth';
-import { defaultProject } from '@/lib/pipeline';
+import { defaultProject, findProjectByName } from '@/lib/pipeline';
 import type { ScimemSupabase } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -18,12 +18,14 @@ interface Hit {
 const CHUNK_BUDGET_CHARS = 500;
 
 /**
- * POST /api/ask  { question }
- * Embed the query, vector-search the user's chunks, rerank (best-effort),
- * answer with inline citations, persist the query row.
+ * POST /api/ask  { question, projectName? }
+ * Embed the query, vector-search the user's chunks IN THE SELECTED PROJECT,
+ * rerank (best-effort), answer with inline citations, persist the query row.
+ * With projectName: only that project's memory is searched (ask scopes to the
+ * selected project's context).
  */
 export async function POST(req: NextRequest) {
-  let body: { question?: string };
+  let body: { question?: string; projectName?: string };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -37,8 +39,22 @@ export async function POST(req: NextRequest) {
 
   const started = Date.now();
   try {
-    const project = await defaultProject(supabase, user.id);
-    if (!project) return NextResponse.json({ error: 'no project' }, { status: 404 });
+    // ask-side resolution: use the named project if given (no implicit create),
+    // otherwise the user's first project (playground behavior)
+    const project =
+      body?.projectName?.trim()
+        ? await findProjectByName(supabase, user.id, body.projectName)
+        : await defaultProject(supabase, user.id);
+    if (!project) {
+      return NextResponse.json(
+        {
+          error: body?.projectName?.trim()
+            ? `project not found: "${body.projectName}" — capture something into it first`
+            : 'no project yet — capture something first',
+        },
+        { status: 404 },
+      );
+    }
 
     const qEmbed = await embed({ texts: [question], inputType: 'query' });
     const { data: hits, error: rpcErr } = await supabase.rpc('match_chunks', {

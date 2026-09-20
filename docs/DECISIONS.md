@@ -55,6 +55,17 @@ Other caveats:
 - Rule going forward: **every schema change ships as a versioned file under `supabase/migrations/` AND is applied to the cloud via `apply_migration` with the same name+SQL**; verify with `list_migrations` that the version recorded matches.
 - DB password reset remains optional (needed only if we ever switch back to CLI `db push`/`db reset` locally). Not blocking.
 
+## Extension capture pipeline — PROTO-C (2026-09-21)
+
+- **Surface:** side panel (WXT 0.21.4, React 19, Tailwind v4, Chrome MV3). Toolbar click opens the panel via `chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })`. `.output/chrome-mv3` is the loadable artifact.
+- **Capture flow (no persistent content script):** background `chrome.scripting.executeScript` reads the **active tab's live DOM** (`document.documentElement.outerHTML`, i.e. post-JS state) and `chrome.tabs.captureVisibleTab` grabs a PNG of the visible viewport; the panel POSTs `{url, title, html, screenshot}` to `/api/capture-page`. Requires `host_permissions: ['<all_urls>']` + `activeTab`/`scripting`/`tabs` — re-audit which hosts are actually needed at S4.9 (guide's review note).
+- **Extraction is server-side** (`lib/extract.ts`, cheerio: strip script/style/nav/footer/aside/etc., then largest of `main`/`article`/`[role=main]`/`body`). One implementation, raw HTML preserved rather than parsed client-side → enables the future Playwright re-crawl.
+- **Snapshots:** private `snapshots` storage bucket (service-role upload inside the route; a storage failure must never fail a capture — paths degrade to null and the rest of the pipeline continues). Paths land on `research_pages.snapshot_path` and event metadata (`page_id`, `snapshot_path`, `screenshot_path`) → the URL + HTML/PNG anchors for Graphiti backtracking and S9 re-crawl.
+- **Ask-scoping semantics:** capture-side project resolution **creates** a named project on demand (`resolveProject`); ask-side resolution **never creates** (`findProjectByName`, 404 with a hint). Prevents a typo in the project field from silently minting empty projects.
+- **CORS middleware** for `/api/*`: `Access-Control-Allow-Origin: *` + preflight handling, because the extension origin (`chrome-extension://…`) is cross-origin to `http://localhost:3000`. Permissive in dev; tighten to an allow-list at deploy (S3.3).
+- **WXT 0.21 gotchas:** `defineBackground` moved to `wxt/utils/define-background`; the generated `.wxt/tsconfig.json` includes `../**/*` which drags root `node_modules` `.d.ts` into typecheck — the extension uses its own tsconfig extending `tsconfig.base.json` with **no `@/` alias** (relative imports only; the alias made tsc's inferred background type non-portable, TS2742).
+- Demo/hint text in the panel UI must never contain credentials (email-only hint; password stays in `.env.local`).
+
 ## Locked decisions (from guide §2 — do not change without telling the user)
 
 - Cloud: Vercel (web+API), Supabase (Postgres+pgvector+tsvector+Auth+Storage), separate worker host later.

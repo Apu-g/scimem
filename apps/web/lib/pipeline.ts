@@ -34,6 +34,7 @@ export async function sha256Hex(text: string): Promise<string> {
 
 export interface ProjectRow {
   id: string;
+  name?: string;
 }
 
 /** The user's first project, creating a default one on first use. */
@@ -58,4 +59,55 @@ export async function defaultProject(
 
   if (error) return null;
   return created;
+}
+
+/**
+ * Resolve the target project for a request.
+ * - name given: find it; if missing, CREATE it (capture-side behavior).
+ * - no name:    fall back to the user's first project (playground behavior).
+ */
+export async function resolveProject(
+  supabase: SupabaseClient,
+  userId: string,
+  name?: string,
+): Promise<ProjectRow | null> {
+  if (name?.trim()) {
+    const trimmed = name.trim();
+    const { data: byName } = await supabase
+      .from('projects').select('id')
+      .eq('owner_id', userId)
+      .eq('name', trimmed)
+      .limit(1)
+      .maybeSingle();
+    if (byName) return byName;
+    const { data: created, error } = await supabase
+      .from('projects')
+      .insert({ owner_id: userId, name: trimmed, description: 'Created from the SCIMEM extension' })
+      .select('id')
+      .single();
+    if (error) return null;
+    return created;
+  }
+  return defaultProject(supabase, userId);
+}
+
+/**
+ * Resolve a project by name WITHOUT creating it (ask-side behavior:
+ * asking about a project that has never captured anything is an error the
+ * caller can surface, not an implicit creation).
+ */
+export async function findProjectByName(
+  supabase: SupabaseClient,
+  userId: string,
+  name: string,
+): Promise<ProjectRow | null> {
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+  const { data } = await supabase
+    .from('projects').select('id')
+    .eq('owner_id', userId)
+    .eq('name', trimmed)
+    .limit(1)
+    .maybeSingle();
+  return data ?? null;
 }

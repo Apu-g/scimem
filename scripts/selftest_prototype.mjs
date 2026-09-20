@@ -25,8 +25,9 @@ for (let i = 0; i < 20; i++) {
 }
 
 const supabase = createClient(URL, ANON, { auth: { autoRefreshToken: false, persistSession: false } });
-const demoEmail = env.SCIMEM_DEMO_EMAIL ?? 'demo@scimem.dev';
-const demoPassword = env.SCIMEM_DEMO_PASSWORD ?? 'DEMO_PASSWORD_REDACTED';
+const demoEmail = env.SCIMEM_DEMO_EMAIL;
+const demoPassword = env.SCIMEM_DEMO_PASSWORD;
+if (!demoEmail || !demoPassword) throw new Error('SCIMEM_DEMO_EMAIL / SCIMEM_DEMO_PASSWORD not set in apps/web/.env.local');
 const { data, error } = await supabase.auth.signInWithPassword({ email: demoEmail, password: demoPassword });
 if (error) throw new Error(`sign-in failed: ${error.message}`);
 const token = data.session.access_token;

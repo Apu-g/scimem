@@ -15,6 +15,7 @@ All dates in `YYYY-MM-DD`. Updated at the end of every step (Agent Protocol rule
 | S1.5 | Row Level Security + isolation test | DONE | 2026-09-21 | RLS on all 9 tables (policies: 8 tenant + jobs service-only); isolation matrix 36/36 PASS via scripts/s1_5_isolation.mjs (2 real users, own projects) |
 | PROTO-A | AI gateway package `@scimem/ai` | DONE | 2026-09-21 | embed (NVIDIA, query/passage), rerank w/ graceful fallback, chatFast (Groq), chatAnswer (OpenRouter); dist exports (webpack fullySpecified) |
 | PROTO-B | Web playground E2E (apps/web) | DONE | 2026-09-21 | Next.js 15 + Tailwind v4: password auth, /api/capture (embed→event+chunks, dedupe), /api/ask (retrieve→cite); smoke test PASSED (real NVIDIA + OpenRouter) |
+| PROTO-C | Extension capture pipeline (apps/extension + web routes) | DONE | 2026-09-21 | WXT 0.21 side panel (Chrome MV3, React 19, Tailwind v4): password sign-in (session in chrome.storage), project switcher (datalist from /api/projects), Capture tab (executeScript live DOM + captureVisibleTab PNG), Ask tab (project-scoped citations); server: /api/capture-page (cheerio extract→chunk→embed, research_pages upsert + visit_count, html/png snapshots to private `snapshots` bucket), /api/projects, CORS middleware; E2E PASSED (chrome stripping, dedupe, visit bump, storage objects, scoped ask, 404 on unknown project) |
 | S2.1 | Chat and embedding clients | TODO | | |
 | S2.2 | Rerank client | TODO | | |
 | S2.3 | Token counter and fake gateway | TODO | | |
@@ -24,11 +25,11 @@ All dates in `YYYY-MM-DD`. Updated at the end of every step (Agent Protocol rule
 | S3.4 | Capture endpoint and ingestion pipeline | TODO | | |
 | S3.5 | Ask endpoint v1 (hybrid RAG baseline) | TODO | | |
 | S3.6 | Trace, research, and query-history endpoints | TODO | | |
-| S4.1 | Scaffold and side panel | TODO | | |
-| S4.2 | Authentication in the panel | TODO | | |
-| S4.3 | API client and project switcher | TODO | | |
-| S4.4 | Ask tab | TODO | | |
-| S4.5 | Capture (ChatGPT adapter first) | TODO | | |
+| S4.1 | Scaffold and side panel | DONE | 2026-09-21 | WXT 0.21.4 + React 19 + Tailwind v4 (Chrome MV3); toolbar action opens side panel (`sidePanel.setPanelBehavior`); `wxt build` → `.output/chrome-mv3` ready to load unpacked |
+| S4.2 | Authentication in the panel | DONE | 2026-09-21 | Password sign-in via supabase-js from the panel; session (access token) in chrome.storage.local; Bearer on every API call; sign-out clears storage |
+| S4.3 | API client and project switcher | DONE | 2026-09-21 | `utils/api.ts` JSON helper (editable API base, storage-backed); project name input pinned to the top with datalist autocomplete from GET /api/projects; capture creates the named project on demand |
+| S4.4 | Ask tab | DONE | 2026-09-21 | Extension Ask tab posts {question, projectName} → /api/ask; answer scoped to that project's chunks only, with citation sources + model/latency line |
+| S4.5 | Capture (ChatGPT adapter first) | TODO | | PROTO-C added full **page capture** (active tab live DOM + screenshot) ahead of the guide's chat-adapters; ChatGPT/Claude/Gemini adapters (guide S4.5–S4.6c) still TODO |
 | S4.6 | More capture sources (one sub-step at a time) | TODO | | |
 | S4.6a | Selection capture | TODO | | |
 | S4.6b | Claude adapter | TODO | | |
