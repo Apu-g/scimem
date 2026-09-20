@@ -12,17 +12,26 @@
   - New Supabase projects ship `sb_publishable_*` keys; **TO VERIFY in S3.1**: whether the anon JWT still works with `supabase-js` for user-scoped clients, or whether we must use the publishable key (records recommendation in S3.1/RLS testing).
 - Provider keys present (NVIDIA, Groq, OpenRouter). Vercel account not yet created — required at S3.3.
 
-## Pending verification (do before the code that depends on it)
+## Verified provider facts (2026-09-20, S1.3b — real calls, mit official docs)
+
+| Item | Value | Notes |
+|---|---|---|
+| NVIDIA embedding model | `nvidia/nemotron-3-embed-1b` | Real call OK, **dimension = 2048**, 561ms. `nv-embedqa-e5-v5` is EOL (2026-08-25); `embed-qa-4` deprecated. |
+| NVIDIA embed endpoint | `POST https://integrate.api.nvidia.com/v1/embeddings` | OpenAI-compatible. **`input_type: "query"\|"passage"` is REQUIRED** (huge accuracy loss if wrong). max input tokens TBD. |
+| NVIDIA rerank endpoint | `POST https://ai.api.nvidia.com/v1/retrieval/nvidia/reranking` | Body `{ model, query:{text}, passages:[{text}] }` → `{ rankings:[{index,logit}] }`. **ACCOUNT NOT PROVISIONED: 404 "Function not found for account"** for all rerank models (v1/v2/v3, nemoretriever, integrate host too). Fix: on build.nvidia.com open the rerank model page and generate/associate an API key (maybe add credits). Rerank stays optional behind the gateway with a no-rerank fallback. |
+| NVIDIA rerank model | `nvidia/nv-rerankqa-mistral-4b-v3` | NVIDIA's own docs pair it with the embed model (75.45% Recall@5). |
+| Groq model | `openai/gpt-oss-20b` | base `https://api.groq.com/openai/v1`, JSON mode OK, 689ms, $.075/M in, 1000 t/s, 131k ctx. Strict JSON schema supported. |
+| OpenRouter model | `anthropic/claude-sonnet-5` | base `https://openrouter.ai/api/v1`, 2657ms, $2/$10, 1M ctx. Send `X-Title` header. |
+
+Other caveats:
+- `nvidia/nv-embedqa-e5-v5` (assumed by the guide's era) reached EOL 2026-08-25 — caught by live verification.
+- Rerank models require account provisioning; CODE IS DONE-ready: `rerank()` will throw a typed error and the pipeline falls back to return order unchanged (matches "simple fallback" rule).
+
+## Still pending (do before code that depends on it)
 
 | Item | Where verified | Value |
 |---|---|---|
-| NVIDIA embedding model ID | S1.3b | TBD (affects `VECTOR_DIM`) |
-| NVIDIA embedding output dimension | S1.3b | TBD |
-| NVIDIA embedding max input tokens / `input_type` (query vs passage) | S1.3b | TBD |
-| NVIDIA rerank model + endpoint/request shape | S1.3b | TBD |
-| Groq fast-JSON model ID | S1.3b | TBD |
-| OpenRouter answer model ID | S1.3b | TBD |
-| Groq/OpenRouter OpenAI-compat base URLs | S2.1 | TBD |
+| NVIDIA embed model max input tokens | S1.3b follow-up | TBD (chunks ~600 tokens, so only matters for research pages) |
 | Supabase JWT signing (symmetric vs asymmetric) for PAT minting | S5.6 | TBD |
 
 ## Locked decisions (from guide §2 — do not change without telling the user)

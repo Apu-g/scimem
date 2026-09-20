@@ -9,8 +9,8 @@ All dates in `YYYY-MM-DD`. Updated at the end of every step (Agent Protocol rule
 | S0.2 | Repo and tooling check | DONE | 2026-09-20 | git init, PROGRESS.md, DECISIONS.md, .gitignore (secrets guarded), first commit b943b20; GitHub push pending auth |
 | S1.1 | Monorepo scaffold | DONE | 2026-09-20 | pnpm workspace, TS strict base, eslint+prettier flat config, @scimem/core with hello(), vitest root config |
 | S1.2 | Env and config module | DONE | 2026-09-20 | zod-validated serverEnv()/publicEnv() with fail-fast, .env.example files, real .env.local from keys.txt (git-ignored) |
-| S1.3 | Supabase project link and migration flow | TODO | | |
-| S1.3b | Verify provider facts (embedding model and dimension) | TODO | | |
+| S1.3 | Supabase project link and migration flow | BLOCKED | 2026-09-20 | CLI installed+init done, migration written; DB password in keys.txt rejected — needs dashboard reset |
+| S1.3b | Verify provider facts (embedding model and dimension) | DONE | 2026-09-20 | embed=nvidia/nemotron-3-embed-1b (2048), rerank endpoint verified but account not provisioned, groq=openai/gpt-oss-20b, openrouter=anthropic/claude-sonnet-5 |
 | S1.4 | Core schema migration | TODO | | |
 | S1.5 | Row Level Security + isolation test | TODO | | |
 | S2.1 | Chat and embedding clients | TODO | | |
