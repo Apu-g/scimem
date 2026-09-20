@@ -1,0 +1,18 @@
+// ESLint flat config (ESLint 9+) for the whole monorepo.
+import tseslint from 'typescript-eslint';
+import prettier from 'eslint-config-prettier';
+
+export default tseslint.config(
+  {
+    ignores: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/.next/**',
+      '**/.wxt/**',
+      '**/.output/**',
+      '**/coverage/**',
+    ],
+  },
+  ...tseslint.configs.recommended,
+  prettier, // turns off style rules that conflict with Prettier
+);

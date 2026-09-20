@@ -35,4 +35,6 @@
 
 ## Tradeoffs observed during the build
 
-_(filled as we go)_
+- **2026-09-20 (S1.1):** TypeScript **7.0.2** (native compiler) is NOT yet supported by `typescript-eslint` 8.70 ("typescript-eslint does not support TS 7.0"). Pinned the workspace to **typescript ~5.9.3** for tooling compatibility. Revisit TS 7 once typescript-eslint ships support (tracked: typescript-eslint/typeascript-eslint#10940).
+- **2026-09-20 (S1.1):** ESLint **10.11.0** + flat config (`eslint.config.mjs` with `tseslint.config` + `eslint-config-prettier`) works at the workspace root.
+- **2026-09-20 (S1.1):** Workspace packages export their **TypeScript source** (`exports → ./src/index.ts`). Vitest/vite and `moduleResolution: bundler` resolve it directly, so packages import each other with zero build step in dev. `tsc -p tsconfig.build.json` produces `dist/` for release artifacts (test files excluded).

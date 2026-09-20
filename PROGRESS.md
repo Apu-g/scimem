@@ -5,9 +5,9 @@ All dates in `YYYY-MM-DD`. Updated at the end of every step (Agent Protocol rule
 
 | Step | Title | Status | Date | Notes |
 |---|---|---|---|---|
-| S0.1 | Accounts and keys | TODO | 2026-09-20 | all keys stored in password manager / local env setup |
-| S0.2 | Repo and tooling check | TODO | 2026-09-20 | git init, PROGRESS.md, DECISIONS.md, .gitignore, first commit |
-| S1.1 | Monorepo scaffold | TODO | | |
+| S0.1 | Accounts and keys | DONE | 2026-09-20 | all keys in keys.txt (git-ignored); pnpm 12.5.1 via ~/.local/bin; Vercel pending until S3.3 |
+| S0.2 | Repo and tooling check | DONE | 2026-09-20 | git init, PROGRESS.md, DECISIONS.md, .gitignore (secrets guarded), first commit b943b20; GitHub push pending auth |
+| S1.1 | Monorepo scaffold | DONE | 2026-09-20 | pnpm workspace, TS strict base, eslint+prettier flat config, @scimem/core with hello(), vitest root config |
 | S1.2 | Env and config module | TODO | | |
 | S1.3 | Supabase project link and migration flow | TODO | | |
 | S1.3b | Verify provider facts (embedding model and dimension) | TODO | | |
