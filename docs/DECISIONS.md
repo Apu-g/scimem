@@ -34,6 +34,13 @@ Other caveats:
 | NVIDIA embed model max input tokens | S1.3b follow-up | TBD (chunks ~600 tokens, so only matters for research pages) |
 | Supabase JWT signing (symmetric vs asymmetric) for PAT minting | S5.6 | TBD |
 
+## Next.js browser env: no whole-`process.env` reads (2026-09-21, PROTO-B fix)
+
+- On the **client**, Next only makes `NEXT_PUBLIC_*` available where the bundler **statically inlined** a direct member expression (`process.env.NEXT_PUBLIC_X`). It does **not** ship a whole `process.env` object — so `publicEnv()`/`parsePublicEnv(process.env)` fails in the browser ("NEXT_PUBLIC_SUPABASE_URL: missing").
+- Rule: client-side code must read `NEXT_PUBLIC_*` as static expressions in **app source** and pass the object literal into `parsePublicEnv` for validation. `apps/web/lib/supabase/browser.ts` does exactly this.
+- Server (Node) code keeps using `publicEnv()`/`serverEnv()` — full `process.env` exists there.
+- `next build` success does NOT prove inlining: verify by grepping the emitted client chunks (`grep -l "<supabase-url>" .next/static`).
+
 ## pgvector 2048-dim HNSW — expression index on `halfvec` (2026-09-21, S1.4)
 
 - **Locked fact:** pgvector 0.8.x caps float32 `vector` HNSW/IVFFlat indexes at **2000 dims** (hard compile-time constant; a 2048-dim hnsw tuple would exceed the 8KB index page). No GUC can raise it (`max_hnsw_dims` does not exist — session `SET` returns `42704`).
