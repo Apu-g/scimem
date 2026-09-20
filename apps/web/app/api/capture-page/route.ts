@@ -69,15 +69,62 @@ export async function POST(req: NextRequest) {
 
     const hash = await sha256Hex(text);
 
-    // --- research_pages upsert (unique per project+url) ---
+    // --- research_pages lookup (unique per project+url) ---
     const { data: pageExisting } = await supabase
       .from('research_pages')
-      .select('id, visit_count')
+      .select('id, visit_count, snapshot_path')
       .eq('project_id', project.id)
       .eq('url', url)
       .limit(1)
       .maybeSingle();
 
+    // --- dedupe by extracted content within this project (unconditional) ---
+    // Same knowledge captured at a different URL is still one event per
+    // (project, content_hash). The research_pages row is still recorded/bumped
+    // (visit tracking), but storage writes + embedding are skipped on a dup.
+    const { data: existing } = await supabase
+      .from('events').select('id')
+      .eq('project_id', project.id)
+      .eq('content_hash', hash)
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      if (pageExisting) {
+        const nextVisits = (pageExisting.visit_count ?? 1) + 1;
+        await supabase
+          .from('research_pages')
+          .update({ visit_count: nextVisits, last_seen: nowIso, last_checked_at: nowIso })
+          .eq('id', pageExisting.id);
+      } else {
+        await supabase.from('research_pages').insert({
+          project_id: project.id,
+          user_id: user.id,
+          url,
+          domain,
+          title,
+          snippet: text.slice(0, 180),
+          visit_count: 1,
+          content_hash: hash,
+          last_checked_at: nowIso,
+        });
+      }
+      return NextResponse.json({
+        ok: true,
+        duplicate: true,
+        event_id: existing.id,
+        page_id: pageExisting?.id ?? null,
+        url,
+        title,
+        text_chars: textChars,
+        snapshot_path: pageExisting?.snapshot_path ?? null,
+        screenshot_path: null,
+        project: project.name ?? project.id,
+        latency_ms: Date.now() - started,
+      });
+    }
+
+    // --- research_pages upsert (unique per project+url) ---
     let pageId: string;
     let snapshotPath: string | null = null;
     let screenshotPath: string | null = null;
@@ -123,28 +170,6 @@ export async function POST(req: NextRequest) {
     }
     if (snapshotPath) {
       await supabase.from('research_pages').update({ snapshot_path: snapshotPath }).eq('id', pageId);
-    }
-
-    // --- dedupe by extracted content within this project ---
-    const { data: existing } = await supabase
-      .from('events').select('id')
-      .eq('project_id', project.id)
-      .eq('content_hash', hash)
-      .maybeSingle();
-    if (existing) {
-      return NextResponse.json({
-        ok: true,
-        duplicate: true,
-        event_id: existing.id,
-        page_id: pageId,
-        url,
-        title,
-        text_chars: textChars,
-        snapshot_path: snapshotPath,
-        screenshot_path: screenshotPath,
-        project: project.name ?? project.id,
-        latency_ms: Date.now() - started,
-      });
     }
 
     // --- chunk + embed + store ---

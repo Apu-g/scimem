@@ -39,8 +39,11 @@ if (error) throw new Error(`sign-in failed: ${error.message}`);
 const token = data.session.access_token;
 console.log(`signed in as ${demoEmail}`);
 
-const PROJECT = 'ext-e2e';
-const URL_UNDER_TEST = 'https://example.com/scimem-retrieval-guide';
+// Fresh project + URL per run → every run exercises the full embed path
+// (project-wide dedupe on content_hash would otherwise short-circuit repeats),
+// while the in-run re-capture still proves duplicate handling.
+const PROJECT = `ext-e2e-${Date.now()}`;
+const URL_UNDER_TEST = `https://example.com/scimem-retrieval-guide?run=${Date.now()}`;
 
 // Realistic page: article content + chrome (nav/footer/script) that must be stripped.
 const html = `<!doctype html>
