@@ -28,3 +28,5 @@ export type KnowledgeStatus = (typeof KNOWLEDGE_STATUSES)[number];
 export function hello(name: string = 'world'): string {
   return `hello ${name} from @scimem/core (${CORE_VERSION})`;
 }
+
+export * from './env.js';
