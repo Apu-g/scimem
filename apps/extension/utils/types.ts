@@ -1,5 +1,7 @@
 export interface StoredSession {
   access_token: string;
+  /** Without this the panel locks itself out when the access token expires. */
+  refresh_token?: string;
   email?: string;
 }
 

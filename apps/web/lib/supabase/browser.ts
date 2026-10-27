@@ -21,7 +21,18 @@ export function browserSupabase() {
       NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
       NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     });
-    client = createBrowserClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+    client = createBrowserClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: true,
+        // No background refresh: when Supabase is unreachable, autoRefreshToken
+        // retries on a timer and floods the console with AuthRetryableFetchError
+        // (one per interval, forever). The session is re-read on page load anyway,
+        // and the token lives ~1h, so a refresh only ever matters after a long
+        // idle tab — which a reload covers.
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    });
   }
   return client;
 }

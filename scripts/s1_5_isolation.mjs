@@ -28,16 +28,12 @@ const SERVICE = env.SUPABASE_SERVICE_ROLE_KEY;
 if (!URL || !ANON || !SERVICE) throw new Error("missing Supabase env vars");
 
 const admin = createClient(URL, SERVICE, { auth: { autoRefreshToken: false, persistSession: false } });
-const nunky = createClient(URL, ANON, { auth: { autoRefreshToken: false, persistSession: false } });
 
 const ts = Date.now();
 const aEmail = `s15a${ts}@example.com`;
 const bEmail = `s15b${ts}@example.com`;
 const PW = `S15test!${ts}`;
-const sha = (s) => {
-  const c = (n, i) => ((n << i) | (n >>> (32 - i))) >>> 0;
-  return `h-${Buffer.from(String(s)).toString("hex").slice(0, 24)}`;
-};
+const sha = (s) => `h-${Buffer.from(String(s)).toString("hex").slice(0, 24)}`;
 // deterministic-ish 2048-dim vector as pgvector text
 const vec = (seed) =>
   "[" +
@@ -78,7 +74,7 @@ const ub = await night("users", async () => {
 
 const signIn = async (email) => {
   const c = createClient(URL, ANON, { auth: { autoRefreshToken: false, persistSession: false } });
-  const { data, error } = await c.auth.signInWithPassword({ email, password: PW });
+  const { error } = await c.auth.signInWithPassword({ email, password: PW });
   if (error) throw error;
   return c;
 };

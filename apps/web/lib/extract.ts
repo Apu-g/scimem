@@ -78,16 +78,6 @@ function cleanClaudeMessage(text: string): string {
   return collapseConsecutiveRepeats(cleaned).replace(/\n{3,}/g, '\n\n').trim();
 }
 
-/** Strip known chat system notices from a message body. */
-function stripChatSystemNotices(text: string): string {
-  return text
-    .split('\n')
-    .filter((l) => !/^Updated memory[A-Za-z0-9_\-/.]*$/i.test(l.trim()))
-    .filter((l) => !/^(Stop generating|Regenerate response|Copy message|Edit message|Share|New chat|Clear chat)$/i.test(l.trim()))
-    .join('\n')
-    .trim();
-}
-
 /**
  * Strip common chat UI noise patterns from extracted text.
  * These appear across Claude, ChatGPT, Gemini, etc.

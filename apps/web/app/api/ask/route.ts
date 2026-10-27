@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { chatAnswer, embed, safeRerank, toVectorLiteral } from '@scimem/ai';
 import { authedClient } from '@/lib/supabase/auth';
 import { defaultProject, findProjectByName } from '@/lib/pipeline';
+import { rankCandidates, type Rankable } from '@/lib/rank';
 import type { ScimemSupabase } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-interface Hit {
+interface Hit extends Rankable {
   id: string;
   event_id: string | null;
   content: string;
@@ -15,7 +16,10 @@ interface Hit {
 }
 
 /** Cap on characters of chunk content exposed to the model per item. */
-const CHUNK_BUDGET_CHARS = 500;
+const CHUNK_BUDGET_CHARS = 420;
+
+/** How many chunks actually reach the model. Fewer + de-duplicated beats more. */
+const TOP_K = 5;
 
 /**
  * POST /api/ask  { question, projectName? }
@@ -78,14 +82,29 @@ export async function POST(req: NextRequest) {
 
     // best-effort rerank (falls back to vector order when the account isn't provisioned)
     const reranked = await safeRerank(question, found);
-    const ordered = reranked ?? found;
+    const pool = reranked ?? found;
+
+    // Deterministic pass on top: BM25 + cosine + recency + exact-phrase, then MMR
+    // to drop near-duplicates, then a small A* pass that pulls in sibling chunks
+    // from the same capture when they qualify the match. Cuts the tokens we send
+    // without losing the answer — duplicates and orphan qualifiers were most of
+    // the waste.
+    const { context, expanded, scores } = rankCandidates(question, pool as Hit[], {
+      topK: TOP_K,
+      neighbourBudget: 2,
+      lambda: 0.7,
+    });
+    const ordered = context.length > 0 ? context : pool.slice(0, TOP_K);
 
     const contextBlock = ordered
-      .map((h, i) => `[${i + 1}] (type:chunk id:${h.id})\n${h.content.slice(0, CHUNK_BUDGET_CHARS)}`)
+      .map((h, i) => {
+        const pulled = expanded.some((e) => e.id === h.id) ? ' (context expansion)' : '';
+        return `[${i + 1}] (type:chunk id:${h.id}${pulled})\n${h.content.slice(0, CHUNK_BUDGET_CHARS)}`;
+      })
       .join('\n\n---\n');
 
     const answer = await chatAnswer({
-      maxTokens: 900,
+      maxTokens: 500,
       messages: [
         {
           role: 'system',
@@ -97,9 +116,11 @@ export async function POST(req: NextRequest) {
             '',
             'Rules:',
             '- Answer ONLY from the provided context. Cite sources inline as [n].',
-            '- If the context is insufficient, say so, then you may answer from general knowledge',
-            '  clearly labelled as "outside context".',
-            '- Be concise; prefer facts over prose.',
+            '- If the context is insufficient, say so in one line, then you may answer from general',
+            '  knowledge clearly labelled as "outside context".',
+            '- BE SPECIFIC AND SHORT. Lead with the direct answer. Then at most 3 short bullets of',
+            '  supporting detail. No preamble, no restating the question, no summary paragraph.',
+            '- Prefer exact values (names, numbers, URLs) over paraphrases.',
           ].join('\n'),
         },
         {
@@ -113,6 +134,8 @@ export async function POST(req: NextRequest) {
       ref: `[${i + 1}]`,
       id: h.id,
       similarity: h.similarity,
+      rank_score: scores.get(h.id) ?? null,
+      expanded: expanded.some((e) => e.id === h.id),
       snippet: h.content.slice(0, 220),
     }));
 
@@ -132,6 +155,13 @@ export async function POST(req: NextRequest) {
       sources,
       model: answer.model,
       reranked: reranked !== null,
+      retrieval: {
+        candidates: found.length,
+        sent_to_model: ordered.length,
+        expanded: expanded.length,
+        method: 'bm25+cosine+recency → MMR → A* sibling expansion',
+      },
+      tokens: { in: answer.tokensIn, out: answer.tokensOut },
       latency_ms: Date.now() - started,
     });
   } catch (e) {

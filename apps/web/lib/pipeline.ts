@@ -144,7 +144,7 @@ export async function findProjectByName(
   const trimmed = name.trim();
   if (!trimmed) return null;
   const { data } = await supabase
-    .from('projects').select('id')
+    .from('projects').select('id, name')
     .eq('owner_id', userId)
     .eq('name', trimmed)
     .limit(1)

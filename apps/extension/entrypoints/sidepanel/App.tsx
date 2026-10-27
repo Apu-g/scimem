@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../../utils/config';
 import {
   apiCall,
+  apiCallText,
   API_BASE_KEY,
   clearSession,
   getApiBase,
@@ -13,7 +14,7 @@ import {
 } from '../../utils/api';
 import type { AskResult, CapturePageData, CapturePageResult, ProjectRow, StoredSession } from '../../utils/types';
 
-type Tab = 'capture' | 'ask';
+type Tab = 'capture' | 'ask' | 'drop';
 
 export default function App() {
   const [loading, setLoading] = useState(true);
@@ -41,6 +42,16 @@ export default function App() {
   const [answer, setAnswer] = useState<string | null>(null);
   const [askNote, setAskNote] = useState<string | null>(null);
   const [sources, setSources] = useState<NonNullable<AskResult['sources']>>([]);
+
+  // context export
+  const [exportBusy, setExportBusy] = useState(false);
+  const [exportMsg, setExportMsg] = useState<string | null>(null);
+
+  // ⚡ / 🧠 drop cards
+  const [analysisBusy, setAnalysisBusy] = useState(false);
+  const [analysis, setAnalysis] = useState('');
+  const [analysisMsg, setAnalysisMsg] = useState<string | null>(null);
+  const [contextMd, setContextMd] = useState('');
   const [askMeta, setAskMeta] = useState<string | null>(null);
 
   // settings
@@ -86,6 +97,7 @@ export default function App() {
       }
       const store: StoredSession = {
         access_token: data.session.access_token,
+        ...(data.session.refresh_token ? { refresh_token: data.session.refresh_token } : {}),
         ...(data.session.user.email ? { email: data.session.user.email } : {}),
       };
       await setStored('scimem_session_v1', store);
@@ -178,6 +190,73 @@ export default function App() {
     setApiBase(apiBase.trim() || 'http://localhost:3000');
   }
 
+  /** The project the drop cards act on. */
+  function activeProject(): string {
+    return (projectName || projects[0]?.name || '').trim();
+  }
+
+  async function doAnalyze() {
+    const name = activeProject();
+    if (analysisBusy || !session || !name) {
+      if (!name) setAnalysisMsg('type a project name first');
+      return;
+    }
+    setAnalysisBusy(true);
+    setAnalysisMsg(null);
+    try {
+      const j = await apiCall<{ plain?: string; markdown?: string; latency_ms?: number }>(
+        `/api/analyze?projectName=${encodeURIComponent(name)}`,
+      );
+      const body = j.plain || j.markdown || '';
+      if (!body.trim()) throw new Error('the model returned nothing');
+      setAnalysis(body);
+      setAnalysisMsg(`${body.length} chars from ${j.latency_ms ?? 0}ms — drag it below`);
+    } catch (e) {
+      setAnalysisMsg((e as Error).message);
+    } finally {
+      setAnalysisBusy(false);
+    }
+  }
+
+  async function doFetchContext() {
+    const name = activeProject();
+    if (exportBusy || !session || !name) {
+      if (!name) setExportMsg('type a project name first');
+      return;
+    }
+    setExportBusy(true);
+    setExportMsg(null);
+    try {
+      const text = await apiCallText(`/api/context-export?projectName=${encodeURIComponent(name)}`);
+      setContextMd(text);
+      setExportMsg(`${(text.length / 1000).toFixed(0)} KB ready to drag or save`);
+    } catch (e) {
+      setExportMsg((e as Error).message);
+    } finally {
+      setExportBusy(false);
+    }
+  }
+
+  async function doSaveContext(text: string) {
+    const name = activeProject();
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'project';
+    const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = `scimem-${slug}.md`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(blobUrl);
+  }
+
+  /** Kept for the Ask tab's download button: fetch and save in one go. */
+  async function doExportContext() {
+    await doFetchContext();
+    if (contextMd) await doSaveContext(contextMd);
+  }
+
   if (loading) return <div className="p-4 text-zinc-500">Loading…</div>;
 
   return (
@@ -253,7 +332,7 @@ export default function App() {
         <div className="flex-1">
           {/* tabs */}
           <div className="flex border-b border-zinc-800">
-            {(['capture', 'ask'] as Tab[]).map((t) => (
+            {(['capture', 'ask', 'drop'] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -261,7 +340,7 @@ export default function App() {
                   tab === t ? 'border-b-2 border-emerald-500 text-emerald-300' : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                {t === 'capture' ? '1 · Capture' : '2 · Ask'}
+                {t === 'capture' ? '1 · Capture' : t === 'ask' ? '2 · Ask' : '3 · ⚡🧠 Drop'}
               </button>
             ))}
           </div>
@@ -320,8 +399,19 @@ export default function App() {
                 </div>
               )}
             </div>
-          ) : (
+          ) : tab === 'ask' ? (
             <div className="p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[0.7rem] text-zinc-500">Ask only within this project</span>
+                <button
+                  onClick={doExportContext}
+                  disabled={exportBusy}
+                  className="rounded border border-zinc-700 px-2 py-1 text-[0.7rem] hover:bg-zinc-800 disabled:opacity-50"
+                >
+                  {exportBusy ? 'downloading…' : '⬇ Context file (.md)'}
+                </button>
+              </div>
+              {exportMsg && <p className="mb-2 text-[0.7rem] text-emerald-400">{exportMsg}</p>}
               <div className="flex gap-2">
                 <input
                   value={question}
@@ -361,6 +451,33 @@ export default function App() {
                 </details>
               )}
             </div>
+          ) : (
+            <div className="flex flex-col gap-3 p-4">
+              <p className="text-xs text-zinc-500">
+                Take this project's memory anywhere. Both cards drag straight into ChatGPT, Gemini or Claude, and
+                every one carries the source links so what you paste stays traceable.
+              </p>
+
+              <DropCard
+                icon="⚡"
+                label="Compressed analysis"
+                hint="TL;DR + the concrete facts + key sources. Small enough for any chat."
+                text={analysis}
+                busy={analysisBusy}
+                error={analysisMsg}
+                onBuild={doAnalyze}
+              />
+              <DropCard
+                icon="🧠"
+                label="Full context"
+                hint="Everything captured, in markdown, links included."
+                text={contextMd}
+                busy={exportBusy}
+                error={exportMsg}
+                onBuild={doFetchContext}
+                onSave={contextMd ? () => doSaveContext(contextMd) : undefined}
+              />
+            </div>
           )}
         </div>
       )}
@@ -376,6 +493,105 @@ export default function App() {
         <button onClick={saveApiBase} className="rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800">
           api
         </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A card you drag into any chat.
+ *
+ * Dragging out of a Chrome side panel into a web page is less reliable than
+ * dragging inside a normal tab (the panel is its own document), so the copy
+ * button is not a fallback afterthought — on several sites it is the only path
+ * that works at all.
+ */
+function DropCard({
+  icon,
+  label,
+  hint,
+  text,
+  busy,
+  error,
+  onBuild,
+  buildLabel,
+  onSave,
+}: {
+  icon: string;
+  label: string;
+  hint: string;
+  text: string;
+  busy: boolean;
+  error: string | null;
+  onBuild: () => void | Promise<void>;
+  buildLabel?: string | undefined;
+  onSave?: (() => void | Promise<void>) | undefined;
+}) {
+  const [copied, setCopied] = useState(false);
+  const ready = text.trim().length > 0;
+
+  const onDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+    e.dataTransfer.setData('text/plain', text);
+    e.dataTransfer.setData('text/html', `<pre>${text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`);
+    e.dataTransfer.effectAllowed = 'copy';
+  };
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
+      <div className="flex items-start gap-2">
+        <span className="text-2xl leading-none">{icon}</span>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold text-zinc-200">{label}</div>
+          <div className="text-[0.65rem] leading-snug text-zinc-500">{hint}</div>
+        </div>
+      </div>
+
+      <button
+        onClick={onBuild}
+        disabled={busy}
+        className="mt-2 w-full rounded border border-zinc-700 px-2 py-1 text-[0.7rem] text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+      >
+        {busy ? 'building…' : (buildLabel ?? 'build')}
+      </button>
+      {error && <p className="mt-1 text-[0.65rem] text-amber-400">{error}</p>}
+
+      <div
+        draggable={ready}
+        onDragStart={onDragStart}
+        title={ready ? 'drag into any chat' : 'build it first'}
+        className={`mt-2 max-h-32 overflow-y-auto whitespace-pre-wrap rounded border border-zinc-800 bg-zinc-900/60 p-2 text-[0.65rem] leading-snug text-zinc-400 ${
+          ready ? 'cursor-grab active:cursor-grabbing' : 'opacity-50'
+        }`}
+      >
+        {ready ? `${text.slice(0, 500)}${text.length > 500 ? '\n…' : ''}` : busy ? 'building…' : 'nothing to drag yet'}
+      </div>
+
+      <div className="mt-2 flex gap-2">
+        <button
+          onClick={copy}
+          disabled={!ready}
+          className="flex-1 rounded border border-zinc-700 px-2 py-1 text-[0.65rem] text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
+        >
+          {copied ? 'copied ✓' : 'copy'}
+        </button>
+        {onSave && (
+          <button
+            onClick={onSave}
+            className="rounded border border-zinc-700 px-2 py-1 text-[0.65rem] text-zinc-300 hover:bg-zinc-800"
+          >
+            save .md
+          </button>
+        )}
       </div>
     </div>
   );
